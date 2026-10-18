@@ -157,6 +157,7 @@
         <nav>
             <a href="{{ route('bukus.index') }}">Data Buku</a>
             <a href="{{ route('kategoris.index') }}">Kategori</a>
+            <a href="{{ route('peminjamans.index') }}">Peminjaman</a>
         </nav>
     </header>
 
@@ -164,6 +165,12 @@
         @if (session('success'))
             <div class="alert">
                 {{ session('success') }}
+            </div>
+        @endif
+
+        @if (session('error'))
+            <div class="alert" style="background: #fee2e2; color: #991b1b;">
+                {{ session('error') }}
             </div>
         @endif
 
