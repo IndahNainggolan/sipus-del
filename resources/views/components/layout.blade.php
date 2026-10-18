@@ -151,8 +151,37 @@
 </head>
 <body>
     <header>
-        <h1>SIPUS-Del</h1>
-        <p>Sistem Informasi Perpustakaan Institut Teknologi Del</p>
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+            <div>
+                <h1 style="margin: 0 0 4px;"><a href="{{ route('bukus.index') }}" style="color: white; text-decoration: none;">SIPUS-Del</a></h1>
+                <p style="margin: 0; font-size: 14px; opacity: 0.9;">Sistem Informasi Perpustakaan Institut Teknologi Del</p>
+            </div>
+
+            <!-- Navigasi Autentikasi Kondisional Pustakawan -->
+            <div style="display: flex; align-items: center; gap: 12px; font-size: 13px;">
+                @auth
+                    <div style="text-align: right; line-height: 1.3;">
+                        <span style="font-weight: bold; color: white;">👤 {{ Auth::user()->name }}</span>
+                        @if (session('login_timestamp'))
+                            <div style="font-size: 11px; opacity: 0.85; color: #ede9fe;">
+                                Sesi: {{ session('login_timestamp') }}
+                            </div>
+                        @endif
+                    </div>
+
+                    <form action="{{ route('logout') }}" method="POST" style="margin: 0; display: inline;">
+                        @csrf
+                        <button type="submit" class="button button-danger" style="padding: 6px 12px; font-size: 12px;">
+                            Logout
+                        </button>
+                    </form>
+                @else
+                    <a href="{{ route('login') }}" class="button" style="background: #6d28d9; border: 1px solid #8b5cf6; padding: 7px 14px; font-size: 13px; text-decoration: none;">
+                        Login Pustakawan
+                    </a>
+                @endauth
+            </div>
+        </div>
 
         <nav>
             <a href="{{ route('bukus.index') }}">Data Buku</a>

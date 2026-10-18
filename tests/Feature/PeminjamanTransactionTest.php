@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Models\Buku;
 use App\Models\Kategori;
 use App\Models\Peminjaman;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class PeminjamanTransactionTest extends TestCase
@@ -14,10 +16,17 @@ class PeminjamanTransactionTest extends TestCase
 
     protected Buku $bukuAdaStok;
     protected Buku $bukuHabisStok;
+    protected User $pustakawan;
 
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->pustakawan = User::create([
+            'name' => 'Pustakawan Uji Transaksi',
+            'email' => 'pustakawan.transaksi@del.ac.id',
+            'password' => Hash::make('password123'),
+        ]);
 
         $kategori = Kategori::create([
             'kode_kategori' => 'KTG999',
@@ -49,13 +58,14 @@ class PeminjamanTransactionTest extends TestCase
 
     public function test_peminjaman_berhasil_dan_stok_berkurang_secara_atomik(): void
     {
-        $response = $this->post(route('peminjamans.store'), [
-            'buku_id' => $this->bukuAdaStok->id,
-            'nim_peminjam' => '12S24001',
-            'nama_peminjam' => 'Mahasiswa Uji',
-            'tanggal_pinjam' => now()->toDateString(),
-            'tanggal_jatuh_tempo' => now()->addDays(7)->toDateString(),
-        ]);
+        $response = $this->actingAs($this->pustakawan)
+            ->post(route('peminjamans.store'), [
+                'buku_id' => $this->bukuAdaStok->id,
+                'nim_peminjam' => '12S24001',
+                'nama_peminjam' => 'Mahasiswa Uji',
+                'tanggal_pinjam' => now()->toDateString(),
+                'tanggal_jatuh_tempo' => now()->addDays(7)->toDateString(),
+            ]);
 
         $response->assertRedirect(route('peminjamans.index'));
         $response->assertSessionHas('success');
@@ -73,13 +83,14 @@ class PeminjamanTransactionTest extends TestCase
 
     public function test_peminjaman_gagal_dan_rollback_jika_stok_nol(): void
     {
-        $response = $this->post(route('peminjamans.store'), [
-            'buku_id' => $this->bukuHabisStok->id,
-            'nim_peminjam' => '12S24002',
-            'nama_peminjam' => 'Mahasiswa Uji 2',
-            'tanggal_pinjam' => now()->toDateString(),
-            'tanggal_jatuh_tempo' => now()->addDays(7)->toDateString(),
-        ]);
+        $response = $this->actingAs($this->pustakawan)
+            ->post(route('peminjamans.store'), [
+                'buku_id' => $this->bukuHabisStok->id,
+                'nim_peminjam' => '12S24002',
+                'nama_peminjam' => 'Mahasiswa Uji 2',
+                'tanggal_pinjam' => now()->toDateString(),
+                'tanggal_jatuh_tempo' => now()->addDays(7)->toDateString(),
+            ]);
 
         $response->assertSessionHas('error');
         // Stok tetap 0
@@ -94,7 +105,7 @@ class PeminjamanTransactionTest extends TestCase
     public function test_peminjaman_gagal_jika_nim_sama_meminjam_buku_sama_belum_kembali(): void
     {
         // Peminjaman pertama berhasil
-        $this->post(route('peminjamans.store'), [
+        $this->actingAs($this->pustakawan)->post(route('peminjamans.store'), [
             'buku_id' => $this->bukuAdaStok->id,
             'nim_peminjam' => '12S24003',
             'nama_peminjam' => 'Mahasiswa Uji 3',
@@ -105,7 +116,7 @@ class PeminjamanTransactionTest extends TestCase
         $this->assertEquals(2, $this->bukuAdaStok->fresh()->stok);
 
         // Peminjaman kedua oleh NIM sama untuk buku sama harus ditolak
-        $response = $this->post(route('peminjamans.store'), [
+        $response = $this->actingAs($this->pustakawan)->post(route('peminjamans.store'), [
             'buku_id' => $this->bukuAdaStok->id,
             'nim_peminjam' => '12S24003',
             'nama_peminjam' => 'Mahasiswa Uji 3',
@@ -121,7 +132,7 @@ class PeminjamanTransactionTest extends TestCase
     public function test_pengembalian_buku_berhasil_dan_stok_bertambah_secara_atomik(): void
     {
         // Lakukan peminjaman awal
-        $this->post(route('peminjamans.store'), [
+        $this->actingAs($this->pustakawan)->post(route('peminjamans.store'), [
             'buku_id' => $this->bukuAdaStok->id,
             'nim_peminjam' => '12S24004',
             'nama_peminjam' => 'Mahasiswa Uji 4',
@@ -133,7 +144,7 @@ class PeminjamanTransactionTest extends TestCase
         $this->assertEquals(2, $this->bukuAdaStok->fresh()->stok);
 
         // Lakukan pengembalian
-        $response = $this->post(route('peminjamans.kembalikan', $peminjaman));
+        $response = $this->actingAs($this->pustakawan)->post(route('peminjamans.kembalikan', $peminjaman));
         $response->assertSessionHas('success');
 
         // Status berubah menjadi dikembalikan
@@ -160,10 +171,24 @@ class PeminjamanTransactionTest extends TestCase
 
         $stokAwal = $this->bukuAdaStok->fresh()->stok;
 
-        $response = $this->post(route('peminjamans.kembalikan', $peminjaman));
+        $response = $this->actingAs($this->pustakawan)->post(route('peminjamans.kembalikan', $peminjaman));
         $response->assertSessionHas('error');
 
         // Stok tidak berubah
         $this->assertEquals($stokAwal, $this->bukuAdaStok->fresh()->stok);
+    }
+
+    public function test_tamu_tidak_dapat_melakukan_transaksi_peminjaman_dan_diredirect_ke_login(): void
+    {
+        $response = $this->post(route('peminjamans.store'), [
+            'buku_id' => $this->bukuAdaStok->id,
+            'nim_peminjam' => '12S24099',
+            'nama_peminjam' => 'Tamu Coba Pinjam',
+            'tanggal_pinjam' => now()->toDateString(),
+            'tanggal_jatuh_tempo' => now()->addDays(7)->toDateString(),
+        ]);
+
+        $response->assertRedirect(route('login'));
+        $this->assertEquals(3, $this->bukuAdaStok->fresh()->stok);
     }
 }
