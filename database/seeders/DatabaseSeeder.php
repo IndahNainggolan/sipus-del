@@ -1,3 +1,4 @@
+
 <?php
 
 namespace Database\Seeders;
@@ -11,6 +12,8 @@ class DatabaseSeeder extends Seeder
         $this->call([
             KategoriSeeder::class,
             BukuSeeder::class,
+            PustakawanSeeder::class,
+            BukuSampelSeeder::class,
         ]);
     }
 }
