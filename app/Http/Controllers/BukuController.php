@@ -7,16 +7,43 @@ use App\Models\Kategori;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\DB;
 
 class BukuController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
-        $bukus = Buku::with('kategori')
-            ->latest()
-            ->paginate(10);
+        if ($request->filled('search')) {
+            session(['last_buku_search' => $request->search]);
+        }
 
-        return view('bukus.index', compact('bukus'));
+        $bukus = Buku::with('kategori')
+            ->withCount('peminjamans')
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $search = trim($request->search);
+                $query->where(function ($sub) use ($search) {
+                    $sub->where('judul', 'like', "%{$search}%")
+                        ->orWhere('penulis', 'like', "%{$search}%")
+                        ->orWhere('isbn', 'like', "%{$search}%");
+                });
+            })
+            ->when($request->filled('kategori_id'), function ($query) use ($request) {
+                $query->where('kategori_id', $request->kategori_id);
+            })
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        $stats = [
+            'total_buku' => DB::table('bukus')->count(),
+            'total_stok' => (int) DB::table('bukus')->sum('stok'),
+            'total_dipinjam' => DB::table('peminjamans')->where('status', 'dipinjam')->count(),
+            'total_kembali' => DB::table('peminjamans')->where('status', 'dikembalikan')->count(),
+        ];
+
+        $kategoris = Kategori::orderBy('nama_kategori')->get();
+
+        return view('bukus.index', compact('bukus', 'stats', 'kategoris'));
     }
 
     public function create(): View
