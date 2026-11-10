@@ -1,0 +1,24 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/peminjamans"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "buku_id": {{buku_id}},
+      "nim_peminjam": "{{nim}}",
+      "nama_peminjam": "Mahasiswa Uji API",
+      "durasi_hari": 7
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Peminjaman dibuat', () => pm.response.to.have.status(201));
+      pm.collectionVariables.set('peminjaman_id', pm.response.json().data.id);
+      pm.test('Location tersedia', () => pm.expect(pm.response.headers.has('Location')).to.eql(true));
+      pm.test('Tautan kembalikan tersedia', () => pm.expect(pm.response.json().data._links).to.have.property('kembalikan_buku'));
+    language: text/javascript
+order: 10000

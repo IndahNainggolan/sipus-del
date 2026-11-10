@@ -1,0 +1,17 @@
+$kind: http-request
+url: "{{base_url}}/soap/sipus"
+method: POST
+headers:
+  Content-Type: text/xml; charset=UTF-8
+body:
+  type: text
+  content: |-
+    <?xml version="1.0" encoding="UTF-8"?>
+    <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:m="http://sim.del.ac.id/soap/library"><soap:Body><m:CheckClearanceStatus><m:nim_peminjam></m:nim_peminjam></m:CheckClearanceStatus></soap:Body></soap:Envelope>
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('SOAP Fault dikembalikan', () => pm.expect(pm.response.text()).to.include('<soap:Fault>'));
+      pm.test('HTTP 400', () => pm.response.to.have.status(400));
+    language: text/javascript
+order: 3000

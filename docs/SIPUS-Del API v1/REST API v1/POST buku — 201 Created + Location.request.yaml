@@ -1,0 +1,32 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/bukus"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "isbn": "{{isbn}}",
+      "judul": "Buku Uji API Minggu 9",
+      "penulis": "Penulis Uji",
+      "penerbit": "Penerbit Uji",
+      "tahun_terbit": 2024,
+      "kategori_id": {{kategori_id}},
+      "stok": 2,
+      "sinopsis": "Sampel pengujian REST API."
+    }
+scripts:
+  - type: beforeRequest
+    code: pm.collectionVariables.set('isbn', '978602' + Date.now().toString().slice(-7));
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.test('Buku dibuat', () => pm.response.to.have.status(201));
+      const body = pm.response.json();
+      pm.collectionVariables.set('buku_id', body.data.id);
+      pm.test('Location mengarah ke resource', () => pm.expect(pm.response.headers.get('Location')).to.include('/api/v1/bukus/'));
+      pm.test('Link pinjam tersedia saat stok positif', () => pm.expect(body.data._links).to.have.property('pinjam_buku'));
+    language: text/javascript
+order: 5000

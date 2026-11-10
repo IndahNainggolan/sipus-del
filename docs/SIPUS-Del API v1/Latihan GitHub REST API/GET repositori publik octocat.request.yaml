@@ -1,0 +1,18 @@
+$kind: http-request
+url: https://api.github.com/users/octocat/repos?sort=updated&direction=desc&per_page=3
+method: GET
+headers:
+  - key: Accept
+    value: application/vnd.github+json
+  - key: X-GitHub-Api-Version
+    value: 2022-11-28
+  - key: Authorization
+    value: Bearer {{github_token}}
+    disabled: true
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('GitHub API mengembalikan 3 repositori atau kurang', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().length).to.be.at.most(3); });
+      // Jika memakai GitHub token, jangan tampilkan atau ekspor nilainya. Sensor token pada screenshot.
+    language: text/javascript
+order: 1000

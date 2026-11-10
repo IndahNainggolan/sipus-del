@@ -1,0 +1,21 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/auth/login"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "email": "{{email}}",
+      "password": "{{password}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Login berhasil', () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.collectionVariables.set('token', body.data.access_token);
+      pm.test('Bearer Token diterbitkan', () => pm.expect(body.data.token_type).to.eql('Bearer'));
+    language: text/javascript
+order: 3000
