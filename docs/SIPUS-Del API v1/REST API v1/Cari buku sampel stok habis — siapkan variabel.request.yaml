@@ -1,0 +1,12 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/bukus?search=Buku%20Sampel%20Stok%20Habis"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Data sampel ditemukan', () => pm.response.to.have.status(200));
+      const book = pm.response.json().data.find((item) => item.stok === 0);
+      if (book) pm.collectionVariables.set('buku_stok_habis_id', book.id);
+      pm.test('ID stok habis tersimpan', () => pm.expect(book).to.exist);
+    language: text/javascript
+order: 2000

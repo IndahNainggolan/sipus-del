@@ -1,0 +1,15 @@
+# Use this workspace to collaborate
+workspace:
+  id: eba9bd15-33ae-466c-8178-752301f4b4c6
+
+localResources:
+  collections:
+    - ../docs/SIPUS-Del API v1
+  specs:
+    - ../docs/openapi-sipus-v1.yaml
+
+# Each entry here maps a local resource to one or more corresponding objects in Postman Cloud
+
+cloudResources:
+  collections:
+    ../docs/SIPUS-Del API v1: 4f7428b4-79da-4ae6-a51b-69eaa6b917d4

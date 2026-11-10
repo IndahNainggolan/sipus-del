@@ -6,10 +6,15 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BukuController;
 use App\Http\Controllers\KategoriController;
 use App\Http\Controllers\PeminjamanController;
+use App\Http\Controllers\Soap\LibrarySoapController;
 
 Route::get('/', function () {
     return redirect()->route('bukus.index');
 });
+
+// Layanan SOAP untuk pemeriksaan status bebas pustaka.
+Route::get('/soap/sipus.wsdl', [LibrarySoapController::class, 'wsdl'])->name('soap.sipus.wsdl');
+Route::post('/soap/sipus', [LibrarySoapController::class, 'checkClearance'])->name('soap.sipus.check-clearance');
 
 // Autentikasi Pustakawan
 Route::middleware('guest')->group(function () {

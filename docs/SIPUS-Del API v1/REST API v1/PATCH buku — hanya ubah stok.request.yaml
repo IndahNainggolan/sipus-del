@@ -1,0 +1,19 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/bukus/{{buku_id}}"
+method: PATCH
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "stok": 2
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('PATCH parsial berhasil', () => pm.response.to.have.status(200));
+      pm.test('PATCH menandai pembaruan parsial', () => pm.expect(pm.response.json().message).to.include('sebagian'));
+    language: text/javascript
+order: 8000

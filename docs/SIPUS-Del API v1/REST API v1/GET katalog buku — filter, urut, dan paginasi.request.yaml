@@ -1,0 +1,11 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/bukus?search={{search}}&tersedia=1&sort=judul&direction=asc&per_page=5"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Katalog tersedia', () => pm.response.to.have.status(200));
+      pm.test('Pagination dan daftar data tersedia', () => { const body = pm.response.json(); pm.expect(body.data).to.be.an('array'); pm.expect(body.meta).to.be.an('object'); });
+      pm.test('Link pinjam muncul pada buku tersedia', () => { const book = pm.response.json().data[0]; if (book) pm.expect(book._links).to.have.property('pinjam_buku'); });
+    language: text/javascript
+order: 1000

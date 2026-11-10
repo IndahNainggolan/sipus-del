@@ -1,0 +1,15 @@
+$kind: collection
+description: Koleksi uji SOAP, katalog buku, autentikasi Sanctum, transaksi sirkulasi, dan consumer OpenLibrary. Atur kategori_id dan buku_stok_habis_id sesuai database lokal. Jangan ekspor token rahasia ke repositori.
+variables:
+  base_url: http://127.0.0.1:8000
+  token: ""
+  email: pustakawan@del.ac.id
+  password: password123
+  kategori_id: "1"
+  search: ""
+  isbn: "9786020009901"
+  buku_id: ""
+  buku_stok_habis_id: ""
+  peminjaman_id: ""
+  nim: 12S24001
+  github_token: ""

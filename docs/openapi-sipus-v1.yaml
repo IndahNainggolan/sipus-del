@@ -1,0 +1,431 @@
+openapi: 3.0.3
+info:
+  title: SIPUS-Del REST API
+  version: 1.0.0
+  description: |
+    API katalog dan sirkulasi perpustakaan. Endpoint API mengirim JSON.
+    Kesalahan API memakai application/problem+json. SOAP bebas pustaka tetap
+    tersedia di /soap/sipus dan kontraknya di /soap/sipus.wsdl.
+servers:
+  - url: http://127.0.0.1:8000/api/v1
+    description: Server pengembangan lokal
+tags:
+  - name: Buku
+  - name: Autentikasi
+  - name: Peminjaman
+paths:
+  /bukus:
+    get:
+      tags: [Buku]
+      summary: Daftar katalog buku
+      parameters:
+        - in: query
+          name: search
+          schema: { type: string }
+          description: Mencari pada judul, penulis, dan ISBN.
+        - in: query
+          name: kategori_id
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: tersedia
+          schema: { type: integer, enum: [1] }
+          description: Jika 1, hanya tampilkan buku dengan stok lebih dari nol.
+        - in: query
+          name: sort
+          schema: { type: string, enum: [judul, penulis, penerbit, tahun_terbit, stok, created_at, -judul, -penulis, -penerbit, -tahun_terbit, -stok, -created_at] }
+        - in: query
+          name: direction
+          schema: { type: string, enum: [asc, desc], default: desc }
+        - in: query
+          name: per_page
+          schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+      responses:
+        '200':
+          description: Katalog buku terpaginasi.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedBooks'
+                  - type: object
+                    properties:
+                      message: { type: string }
+        '422': { $ref: '#/components/responses/ValidationProblem' }
+    post:
+      tags: [Buku]
+      summary: Membuat buku
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BookInput' }
+      responses:
+        '201':
+          description: Buku dibuat.
+          headers:
+            Location:
+              schema: { type: string, format: uri }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BookResponse' }
+        '401': { $ref: '#/components/responses/UnauthorizedProblem' }
+        '422': { $ref: '#/components/responses/ValidationProblem' }
+  /bukus/{buku}:
+    parameters:
+      - $ref: '#/components/parameters/BookId'
+    get:
+      tags: [Buku]
+      summary: Detail buku, kategori, dan riwayat peminjaman
+      responses:
+        '200':
+          description: Detail buku ditemukan.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BookResponse' }
+        '404': { $ref: '#/components/responses/NotFoundProblem' }
+    put:
+      tags: [Buku]
+      summary: Mengganti seluruh atribut buku
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BookInput' }
+      responses:
+        '200':
+          description: Buku diganti sepenuhnya.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BookResponse' }
+        '401': { $ref: '#/components/responses/UnauthorizedProblem' }
+        '404': { $ref: '#/components/responses/NotFoundProblem' }
+        '422': { $ref: '#/components/responses/ValidationProblem' }
+    patch:
+      tags: [Buku]
+      summary: Memperbarui sebagian atribut buku
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BookPatch' }
+      responses:
+        '200':
+          description: Buku diperbarui sebagian.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BookResponse' }
+        '401': { $ref: '#/components/responses/UnauthorizedProblem' }
+        '404': { $ref: '#/components/responses/NotFoundProblem' }
+        '422': { $ref: '#/components/responses/ValidationProblem' }
+    delete:
+      tags: [Buku]
+      summary: Menghapus buku yang tidak sedang dipinjam
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204': { description: Buku berhasil dihapus tanpa response body. }
+        '401': { $ref: '#/components/responses/UnauthorizedProblem' }
+        '404': { $ref: '#/components/responses/NotFoundProblem' }
+        '409':
+          description: Masih ada peminjaman aktif.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+  /bukus/{buku}/referensi-eksternal:
+    parameters:
+      - $ref: '#/components/parameters/BookId'
+    get:
+      tags: [Buku]
+      summary: Mencari metadata eksternal pada OpenLibrary
+      responses:
+        '200':
+          description: Data referensi atau hasil fallback jika layanan eksternal gagal.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      buku_id: { type: integer }
+                      isbn: { type: string }
+                      external_reference: { type: object, nullable: true, additionalProperties: true }
+                      available: { type: boolean }
+                  message: { type: string }
+        '404': { $ref: '#/components/responses/NotFoundProblem' }
+  /auth/login:
+    post:
+      tags: [Autentikasi]
+      summary: Membuat Bearer Token stateless
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+      responses:
+        '200':
+          description: Token Sanctum diterbitkan.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      access_token: { type: string }
+                      token_type: { type: string, example: Bearer }
+                      user: { $ref: '#/components/schemas/User' }
+                  message: { type: string }
+        '401': { $ref: '#/components/responses/UnauthorizedProblem' }
+        '422': { $ref: '#/components/responses/ValidationProblem' }
+  /auth/me:
+    get:
+      tags: [Autentikasi]
+      summary: Profil pemilik token
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Profil ditemukan.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/User' }
+                  message: { type: string }
+        '401': { $ref: '#/components/responses/UnauthorizedProblem' }
+  /auth/logout:
+    post:
+      tags: [Autentikasi]
+      summary: Mencabut token aktif
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Token dicabut. }
+        '401': { $ref: '#/components/responses/UnauthorizedProblem' }
+  /peminjamans:
+    get:
+      tags: [Peminjaman]
+      summary: Daftar transaksi peminjaman
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string, enum: [dipinjam, dikembalikan] }
+        - in: query
+          name: nim
+          schema: { type: string, maxLength: 20 }
+        - in: query
+          name: per_page
+          schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+      responses:
+        '200': { description: Daftar transaksi terpaginasi. }
+        '401': { $ref: '#/components/responses/UnauthorizedProblem' }
+        '422': { $ref: '#/components/responses/ValidationProblem' }
+    post:
+      tags: [Peminjaman]
+      summary: Mencatat peminjaman dan mengurangi stok secara atomik
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [buku_id, nim_peminjam, nama_peminjam, durasi_hari]
+              properties:
+                buku_id: { type: integer, minimum: 1 }
+                nim_peminjam: { type: string, minLength: 4, maxLength: 20 }
+                nama_peminjam: { type: string, minLength: 3, maxLength: 150 }
+                durasi_hari: { type: integer, minimum: 1, maximum: 365 }
+      responses:
+        '201':
+          description: Peminjaman dibuat.
+          headers:
+            Location:
+              schema: { type: string, format: uri }
+        '401': { $ref: '#/components/responses/UnauthorizedProblem' }
+        '409':
+          description: Mahasiswa masih memiliki pinjaman aktif untuk buku yang sama.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '422':
+          description: Validasi gagal atau stok buku habis.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+  /peminjamans/{peminjaman}:
+    parameters:
+      - in: path
+        name: peminjaman
+        required: true
+        schema: { type: integer, minimum: 1 }
+    get:
+      tags: [Peminjaman]
+      summary: Detail transaksi peminjaman
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Detail transaksi ditemukan. }
+        '401': { $ref: '#/components/responses/UnauthorizedProblem' }
+        '404': { $ref: '#/components/responses/NotFoundProblem' }
+  /peminjamans/{peminjaman}/kembalikan:
+    parameters:
+      - in: path
+        name: peminjaman
+        required: true
+        schema: { type: integer, minimum: 1 }
+    patch:
+      tags: [Peminjaman]
+      summary: Mengembalikan buku dan menambah stok secara atomik
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Buku dikembalikan dan stok bertambah. }
+        '401': { $ref: '#/components/responses/UnauthorizedProblem' }
+        '404': { $ref: '#/components/responses/NotFoundProblem' }
+        '409':
+          description: Transaksi sudah dikembalikan.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Sanctum token
+  parameters:
+    BookId:
+      in: path
+      name: buku
+      required: true
+      schema: { type: integer, minimum: 1 }
+  responses:
+    UnauthorizedProblem:
+      description: Autentikasi diperlukan atau kredensial salah.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFoundProblem:
+      description: Rute atau data tidak ditemukan.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    ValidationProblem:
+      description: Validasi gagal.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status, detail, instance]
+      properties:
+        type: { type: string, example: about:blank }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: string }
+    User:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        email: { type: string, format: email }
+    BookInput:
+      type: object
+      required: [isbn, judul, penulis, penerbit, tahun_terbit, kategori_id, stok, sinopsis]
+      properties:
+        isbn: { type: string, maxLength: 255 }
+        judul: { type: string, minLength: 5, maxLength: 255 }
+        penulis: { type: string, maxLength: 255 }
+        penerbit: { type: string, maxLength: 255 }
+        tahun_terbit: { type: integer, minimum: 1000 }
+        kategori_id: { type: integer, minimum: 1 }
+        stok: { type: integer, minimum: 0 }
+        sinopsis: { type: string, nullable: true }
+    BookPatch:
+      type: object
+      minProperties: 1
+      properties:
+        isbn: { type: string, maxLength: 255 }
+        judul: { type: string, minLength: 5, maxLength: 255 }
+        penulis: { type: string, maxLength: 255 }
+        penerbit: { type: string, maxLength: 255 }
+        tahun_terbit: { type: integer, minimum: 1000 }
+        kategori_id: { type: integer, minimum: 1 }
+        stok: { type: integer, minimum: 0 }
+        sinopsis: { type: string, nullable: true }
+    Book:
+      allOf:
+        - $ref: '#/components/schemas/BookInput'
+        - type: object
+          properties:
+            id: { type: integer }
+            kategori:
+              type: object
+              nullable: true
+              properties:
+                id: { type: integer }
+                kode_kategori: { type: string }
+                nama_kategori: { type: string }
+            peminjamans_count: { type: integer }
+            riwayat_peminjaman: { type: array, items: { $ref: '#/components/schemas/Loan' } }
+            _links:
+              type: object
+              properties:
+                self: { $ref: '#/components/schemas/Link' }
+                pinjam_buku: { $ref: '#/components/schemas/Link' }
+    Link:
+      type: object
+      required: [href, method]
+      properties:
+        href: { type: string, format: uri }
+        method: { type: string }
+    BookResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Book' }
+        message: { type: string }
+    PaginatedBooks:
+      type: object
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/Book' } }
+        links: { type: object, additionalProperties: { type: string, nullable: true } }
+        meta: { type: object, additionalProperties: true }
+    Loan:
+      type: object
+      properties:
+        id: { type: integer }
+        kode_pinjam: { type: string }
+        buku_id: { type: integer }
+        nim_peminjam: { type: string }
+        nama_peminjam: { type: string }
+        tanggal_pinjam: { type: string, format: date }
+        tanggal_jatuh_tempo: { type: string, format: date }
+        tanggal_kembali: { type: string, format: date, nullable: true }
+        status: { type: string, enum: [dipinjam, dikembalikan] }
+        _links:
+          type: object
+          properties:
+            self: { $ref: '#/components/schemas/Link' }
+            kembalikan_buku: { $ref: '#/components/schemas/Link' }

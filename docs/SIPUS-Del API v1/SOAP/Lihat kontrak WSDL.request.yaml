@@ -1,0 +1,11 @@
+$kind: http-request
+url: "{{base_url}}/soap/sipus.wsdl"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('WSDL tersedia', () => pm.response.to.have.status(200));
+      pm.test('Content-Type XML', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('text/xml'));
+      pm.test('Operasi terdaftar', () => pm.expect(pm.response.text()).to.include('CheckClearanceStatus'));
+    language: text/javascript
+order: 1000

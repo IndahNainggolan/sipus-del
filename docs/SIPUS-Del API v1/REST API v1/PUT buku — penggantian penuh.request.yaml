@@ -1,0 +1,26 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/bukus/{{buku_id}}"
+method: PUT
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "isbn": "{{isbn}}",
+      "judul": "Buku Uji API Minggu 9",
+      "penulis": "Penulis Uji",
+      "penerbit": "Penerbit Uji",
+      "tahun_terbit": 2024,
+      "kategori_id": {{kategori_id}},
+      "stok": 2,
+      "sinopsis": "Representasi buku lengkap untuk PUT."
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('PUT berhasil', () => pm.response.to.have.status(200));
+      pm.test('PUT menandai penggantian penuh', () => pm.expect(pm.response.json().message).to.include('sepenuhnya'));
+    language: text/javascript
+order: 7000

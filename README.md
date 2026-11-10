@@ -207,6 +207,69 @@ php artisan db:seed --class=BukuSampelSeeder
 
 `PustakawanSeeder` dan `BukuSampelSeeder` menggunakan `updateOrCreate()` sehingga data dengan identitas yang sama diperbarui, bukan dibuat berulang kali. `BukuSeeder` berbeda karena membuat 20 buku baru setiap kali dijalankan.
 
+## Praktikum Minggu 9 — Web Services & REST API
+
+**Branch tugas:** `week9-rest-api`
+
+### Identitas Mahasiswa
+
+- **Nama Lengkap:** isi nama Anda
+- **NIM:** isi NIM Anda
+- **Kelas:** isi kelas Anda
+- **Program Studi:** isi program studi Anda
+
+### Analisis Kebutuhan dan Kelayakan Web Services
+
+> Proyek Week 6 yang diberikan menggunakan Laravel 13; modul praktikum menyebut Laravel 11.x. Implementasi ini mengikuti versi proyek agar antarmuka Blade dan dependensi yang sudah ada tidak perlu diturunkan versinya.
+
+| Sistem | Peran SIPUS-Del | Data/operasi |
+|---|---|---|
+| Aplikasi Yudisium lama | Provider SOAP | Memeriksa jumlah pinjaman aktif mahasiswa melalui XML `CheckClearanceStatus`. |
+| Aplikasi Mobile dan kiosk mandiri | Provider REST | Membaca katalog, mengelola buku, dan memproses peminjaman/pengembalian melalui JSON. |
+| OpenLibrary | Consumer REST | SIPUS-Del meminta metadata tambahan berdasarkan ISBN melalui Laravel HTTP Client. |
+
+REST dipilih untuk aplikasi mobile dan kiosk karena resource buku dan peminjaman dapat dialamatkan melalui URI, memakai semantik HTTP yang umum, mengirim JSON ringan, serta menggunakan Bearer Token tanpa sesi browser. SOAP tetap disediakan untuk integrasi yudisium karena sistem tersebut membutuhkan kontrak XML/WSDL yang eksplisit dan kompatibilitas dengan aplikasi legacy. Endpoint SOAP tidak menggantikan API REST untuk klien baru.
+
+### Katalog Endpoint
+
+| Method | URI | Proteksi | Fungsi | Respons utama |
+|---|---|---|---|---|
+| GET | `/soap/sipus.wsdl` | Publik | Kontrak operasi SOAP bebas pustaka | 200 |
+| POST | `/soap/sipus` | Publik | Memeriksa pinjaman aktif berdasarkan NIM | 200, 400 `soap:Fault` |
+| GET | `/api/v1/bukus` | Publik | Katalog, pencarian, filter, pengurutan, dan paginasi | 200 |
+| GET | `/api/v1/bukus/{id}` | Publik | Detail buku, kategori, dan riwayat pinjaman | 200, 404 |
+| GET | `/api/v1/bukus/{id}/referensi-eksternal` | Publik | Metadata OpenLibrary berdasarkan ISBN | 200 |
+| POST | `/api/v1/auth/login` | Publik | Membuat Sanctum Bearer Token | 200, 401 |
+| GET | `/api/v1/auth/me` | Bearer Token | Profil pemilik token | 200, 401 |
+| POST | `/api/v1/auth/logout` | Bearer Token | Mencabut token aktif | 200, 401 |
+| POST | `/api/v1/bukus` | Bearer Token | Membuat buku | 201 + `Location`, 401, 422 |
+| PUT | `/api/v1/bukus/{id}` | Bearer Token | Mengganti seluruh atribut buku | 200, 401, 404, 422 |
+| PATCH | `/api/v1/bukus/{id}` | Bearer Token | Memperbarui sebagian atribut buku | 200, 401, 404, 422 |
+| DELETE | `/api/v1/bukus/{id}` | Bearer Token | Menghapus buku tanpa pinjaman aktif | 204, 401, 404, 409 |
+| GET | `/api/v1/peminjamans` | Bearer Token | Riwayat peminjaman terpaginasi | 200, 401, 422 |
+| GET | `/api/v1/peminjamans/{id}` | Bearer Token | Detail transaksi peminjaman | 200, 401, 404 |
+| POST | `/api/v1/peminjamans` | Bearer Token | Meminjam buku dan mengurangi stok secara atomik | 201 + `Location`, 401, 409, 422 |
+| PATCH | `/api/v1/peminjamans/{id}/kembalikan` | Bearer Token | Mengembalikan buku dan menambah stok secara atomik | 200, 401, 404, 409 |
+
+Kesalahan validasi, autentikasi, dan data/rute yang tidak ditemukan pada `/api/*` memakai `application/problem+json` dengan struktur RFC 7807. Tautan `_links.pinjam_buku` hanya muncul saat stok tersedia, sedangkan `_links.kembalikan_buku` hanya muncul saat transaksi masih berstatus `dipinjam`.
+
+### Instalasi dan Pengujian Cepat
+
+Untuk checkout dan database yang benar-benar baru, jalankan:
+
+```bash
+composer install
+copy .env.example .env
+php artisan key:generate
+php artisan migrate --seed
+```
+
+Untuk proyek Week 6 yang databasenya sudah berisi data, cukup jalankan `composer install` dan `php artisan migrate`. Pertahankan `.env` yang sekarang dan jangan jalankan `migrate:fresh` atau seeder buku lagi; `BukuSeeder` menambahkan 20 buku baru setiap kali dijalankan.
+
+Rute API Laravel 13 dimuat dari `routes/api.php`; Laravel Sanctum sudah tercatat sebagai dependensi Composer dan migrasi token dibuat oleh paket. Kredensial pustakawan lokal untuk pengujian: `pustakawan@del.ac.id` / `password123`. Base URL Postman adalah `http://127.0.0.1:8000`; impor `docs/SIPUS-Del-API-v1.postman_collection.json`, lalu isi `kategori_id` sesuai database. Jalankan request pencarian buku sampel stok habis agar `buku_stok_habis_id` terisi otomatis. ISBN untuk request pembuatan buku dibuat baru pada setiap run. Token login disimpan otomatis pada variabel koleksi `token` dan tidak boleh dimasukkan ke README atau Git.
+
+Kontrak layanan tersedia di `docs/openapi-sipus-v1.yaml`. Setelah menjalankan aplikasi, lampirkan bukti uji asli pada bagian ini. Simpan screenshot di `dokumentasi/week9/` untuk: (1) SOAP sukses dan `soap:Fault`, (2) login dan Bearer Token yang sudah disensor, (3) katalog berpaginasi dengan `_links`, (4) POST buku 201 dan header `Location`, (5) perbedaan PUT dan PATCH, (6) peminjaman sukses dan penolakan 422/409, dan (7) latihan GitHub REST API dengan token disensor.
+
 ## Pengembang
 
 Proyek praktikum Pemrograman dan Pengembangan Web — Institut Teknologi Del.
