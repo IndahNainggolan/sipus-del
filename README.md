@@ -213,10 +213,10 @@ php artisan db:seed --class=BukuSampelSeeder
 
 ### Identitas Mahasiswa
 
-- **Nama Lengkap:** isi nama Anda
-- **NIM:** isi NIM Anda
-- **Kelas:** isi kelas Anda
-- **Program Studi:** isi program studi Anda
+- **Nama Lengkap:Indah Elsadai Nainggolan**
+- **NIM:12S24046**
+- **Kelas:SI 2**
+- **Program Studi:Sistem Informasi**
 
 ### Analisis Kebutuhan dan Kelayakan Web Services
 
